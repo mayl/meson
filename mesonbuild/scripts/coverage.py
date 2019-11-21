@@ -16,17 +16,21 @@ from mesonbuild import environment
 
 import argparse, sys, os, subprocess, pathlib
 
-def coverage(outputs, source_root, subproject_root, build_root, log_dir):
+def coverage(outputs, source_root, subproject_root, build_root, log_dir, use_llvm_cov):
     outfiles = []
     exitcode = 0
 
-    (gcovr_exe, gcovr_new_rootdir, lcov_exe, genhtml_exe) = environment.find_coverage_tools()
+    print("****** use_llvm_cov is {}********".format(use_llvm_cov))
+    (gcovr_exe, gcovr_new_rootdir, lcov_exe, genhtml_exe, gcov_exe, llvm_cov_exe) = environment.find_coverage_tools()
+    if use_llvm_cov:
+        gcov_exe = '/home/larry/projects/meson/coverageTest/llvm2gcov.sh'
+        # gcov_exe = '{} gcov'.format(llvm_cov_exe)
 
     # gcovr >= 4.2 requires a different syntax for out of source builds
     if gcovr_new_rootdir:
-        gcovr_base_cmd = [gcovr_exe, '-r', source_root, build_root]
+        gcovr_base_cmd = [gcovr_exe, '--gcov-executable='+gcov_exe, '-r', source_root, build_root]
     else:
-        gcovr_base_cmd = [gcovr_exe, '-r', build_root]
+        gcovr_base_cmd = [gcovr_exe, '--gcov-executable='+gcov_exe, '-r', build_root]
 
     if not outputs or 'xml' in outputs:
         if gcovr_exe:
@@ -59,12 +63,14 @@ def coverage(outputs, source_root, subproject_root, build_root, log_dir):
             run_tracefile = covinfo + '.run'
             raw_tracefile = covinfo + '.raw'
             subprocess.check_call([lcov_exe,
+                                   '--gcov-tool', gcov_exe,
                                    '--directory', build_root,
                                    '--capture',
                                    '--initial',
                                    '--output-file',
                                    initial_tracefile])
             subprocess.check_call([lcov_exe,
+                                   '--gcov-tool='+gcov_exe,
                                    '--directory', build_root,
                                    '--capture',
                                    '--output-file', run_tracefile,
@@ -73,18 +79,21 @@ def coverage(outputs, source_root, subproject_root, build_root, log_dir):
                                    ])
             # Join initial and test results.
             subprocess.check_call([lcov_exe,
+                                   '--gcov-tool='+gcov_exe,
                                    '-a', initial_tracefile,
                                    '-a', run_tracefile,
                                    '--rc', 'lcov_branch_coverage=1',
                                    '-o', raw_tracefile])
             # Remove all directories outside the source_root from the covinfo
             subprocess.check_call([lcov_exe,
+                                   '--gcov-tool='+gcov_exe,
                                    '--extract', raw_tracefile,
                                    os.path.join(source_root, '*'),
                                    '--rc', 'lcov_branch_coverage=1',
                                    '--output-file', covinfo])
             # Remove all directories inside subproject dir
             subprocess.check_call([lcov_exe,
+                                   '--gcov-tool='+gcov_exe,
                                    '--remove', covinfo,
                                    os.path.join(subproject_root, '*'),
                                    '--rc', 'lcov_branch_coverage=1',
@@ -137,6 +146,8 @@ def run(args):
                         const='xml', help='generate Xml report')
     parser.add_argument('--html', dest='outputs', action='append_const',
                         const='html', help='generate Html report')
+    parser.add_argument('--use_llvm_cov', action='store_true', 
+                        help='use llvm-cov' )
     parser.add_argument('source_root')
     parser.add_argument('subproject_root')
     parser.add_argument('build_root')
@@ -144,7 +155,7 @@ def run(args):
     options = parser.parse_args(args)
     return coverage(options.outputs, options.source_root,
                     options.subproject_root, options.build_root,
-                    options.log_dir)
+                    options.log_dir, options.use_llvm_cov)
 
 if __name__ == '__main__':
     sys.exit(run(sys.argv[1:]))

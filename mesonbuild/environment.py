@@ -132,13 +132,19 @@ def find_coverage_tools():
 
     lcov_exe = 'lcov'
     genhtml_exe = 'genhtml'
+    llvm_cov_exe = detect_llvm_cov()[0]
+    gcov_exe = 'gcov'
 
     if not mesonlib.exe_exists([lcov_exe, '--version']):
         lcov_exe = None
     if not mesonlib.exe_exists([genhtml_exe, '--version']):
         genhtml_exe = None
+    if not mesonlib.exe_exists([llvm_cov_exe, '--version']):
+        llvm_cov_exe = None
+    if not mesonlib.exe_exists([gcov_exe, '--version']):
+        gcov_exe = None
 
-    return gcovr_exe, gcovr_new_rootdir, lcov_exe, genhtml_exe
+    return gcovr_exe, gcovr_new_rootdir, lcov_exe, genhtml_exe, gcov_exe, llvm_cov_exe
 
 def detect_ninja(version: str = '1.5', log: bool = False) -> str:
     r = detect_ninja_command_and_version(version, log)
@@ -236,6 +242,19 @@ def detect_clangformat() -> typing.List[str]:
         passed to Popen()
     """
     tools = get_llvm_tool_names('clang-format')
+    for tool in tools:
+        path = shutil.which(tool)
+        if path is not None:
+            return [path]
+    return []
+
+def detect_llvm_cov() -> typing.List[str]:
+    """ Look for llvm_cov binary. 
+
+    TODO: check clang version and match that
+    """
+
+    tools = get_llvm_tool_names('llvm-cov')
     for tool in tools:
         path = shutil.which(tool)
         if path is not None:

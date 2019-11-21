@@ -774,6 +774,7 @@ int dummy;
 
     def generate_coverage_command(self, elem, outputs):
         elem.add_item('COMMAND', self.environment.get_build_command() +
+                      # ['--internal', 'coverage', '--use_llvm_cov'] +
                       ['--internal', 'coverage'] +
                       outputs +
                       [self.environment.get_source_dir(),
